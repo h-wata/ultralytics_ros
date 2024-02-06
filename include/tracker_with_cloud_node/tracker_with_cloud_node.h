@@ -61,6 +61,7 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle pnh_;
   ros::Publisher detection_cloud_pub_;
+  ros::Publisher excluded_cloud_pub_;
   ros::Publisher detection3d_pub_;
   ros::Publisher marker_pub_;
   ros::Time last_call_time_;
@@ -89,7 +90,8 @@ public:
   void projectCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                     const ultralytics_ros::YoloResultConstPtr& yolo_result_msg, const std_msgs::Header& header,
                     vision_msgs::Detection3DArray& detections3d_msg,
-                    sensor_msgs::PointCloud2& combine_detection_cloud_msg);
+                    sensor_msgs::PointCloud2& combine_detection_cloud_msg,
+                    sensor_msgs::PointCloud2& excluded_cloud_msg);
   void processPointsWithBbox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                              const vision_msgs::Detection2D& detection,
                              pcl::PointCloud<pcl::PointXYZ>::Ptr& detection_cloud_raw);

@@ -31,6 +31,7 @@ TrackerWithCloudNode::TrackerWithCloudNode() : pnh_("~")
   pnh_.param<int>("max_cluster_size", max_cluster_size_, 25000);
 
   detection_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("detection_cloud", 1);
+  detection_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("excluded_cloud", 1);
   detection3d_pub_ = nh_.advertise<vision_msgs::Detection3DArray>(yolo_3d_result_topic_, 1);
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detection_marker", 1);
   camera_info_sub_.subscribe(nh_, camera_info_topic_, 10);
@@ -58,10 +59,12 @@ void TrackerWithCloudNode::syncCallback(const sensor_msgs::CameraInfo::ConstPtr&
   transformed_cloud = cloud2TransformedCloud(downsampled_cloud, cloud_msg->header);
   vision_msgs::Detection3DArray detections3d_msg;
   sensor_msgs::PointCloud2 detection_cloud_msg;
+  sensor_msgs::PointCloud2 excluded_cloud_msg;
   visualization_msgs::MarkerArray marker_array_msg;
 
   cam_model_.fromCameraInfo(camera_info_msg);
-  projectCloud(transformed_cloud, yolo_result_msg, cloud_msg->header, detections3d_msg, detection_cloud_msg);
+  projectCloud(transformed_cloud, yolo_result_msg, cloud_msg->header, detections3d_msg, detection_cloud_msg,
+               excluded_cloud_msg);
   marker_array_msg = createMarkerArray(detections3d_msg, callback_interval.toSec());
 
   detection3d_pub_.publish(detections3d_msg);
@@ -72,9 +75,15 @@ void TrackerWithCloudNode::syncCallback(const sensor_msgs::CameraInfo::ConstPtr&
 void TrackerWithCloudNode::projectCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                         const ultralytics_ros::YoloResultConstPtr& yolo_result_msg,
                                         const std_msgs::Header& header, vision_msgs::Detection3DArray& detections3d_msg,
-                                        sensor_msgs::PointCloud2& combine_detection_cloud_msg)
+                                        sensor_msgs::PointCloud2& combine_detection_cloud_msg,
+                                        sensor_msgs::PointCloud2& excluded_cloud_msg)
 {
   pcl::PointCloud<pcl::PointXYZ> combine_detection_cloud;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr voxel_grid_flitered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::VoxelGrid<pcl::PointXYZ> voxel_grid;
+  voxel_grid.setInputCloud(cloud);
+  voxel_grid.setLeafSize(voxel_leaf_size_, voxel_leaf_size_, voxel_leaf_size_);
+  voxel_grid.filter(*voxel_grid_flitered_cloud);
   detections3d_msg.header = header;
   detections3d_msg.header.stamp = yolo_result_msg->header.stamp;
 
@@ -99,8 +108,12 @@ void TrackerWithCloudNode::projectCloud(const pcl::PointCloud<pcl::PointXYZ>::Pt
       combine_detection_cloud += *closest_detection_cloud;
     }
   }
+  pcl::PointCloud<pcl::PointXYZ>::Ptr excluded_cloud =
+      removePointsWithPoints(voxel_grid_flitered_cloud, combine_detection_cloud.makeShared());
+  excluded_cloud = cloud2TransformedCloud(excluded_cloud, header);
 
   pcl::toROSMsg(combine_detection_cloud, combine_detection_cloud_msg);
+  pcl::toROSMsg(*excluded_cloud, excluded_cloud_msg);
   combine_detection_cloud_msg.header = header;
 }
 
@@ -254,7 +267,6 @@ TrackerWithCloudNode::removePointsWithPoints(const pcl::PointCloud<pcl::PointXYZ
 
   if (search_method_ == "kdtree")
   {
-    ROS_INFO("Remove by kdtree");
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
     kdtree.setInputCloud(remove_cloud);
 
@@ -271,7 +283,6 @@ TrackerWithCloudNode::removePointsWithPoints(const pcl::PointCloud<pcl::PointXYZ
   }
   else if (search_method_ == "octree")
   {
-    ROS_INFO("Remove by octree change detector");
     float resolution = 0.1f;
     pcl::octree::OctreePointCloudChangeDetector<pcl::PointXYZ> octree(resolution);
     octree.setInputCloud(remove_cloud);
@@ -285,10 +296,6 @@ TrackerWithCloudNode::removePointsWithPoints(const pcl::PointCloud<pcl::PointXYZ
     {
       removed_cloud->points.push_back((*cloud)[indice]);
     }
-  }
-  else
-  {
-    ROS_ERROR("Invalid sorted_by parameter");
   }
   return removed_cloud;
 }
