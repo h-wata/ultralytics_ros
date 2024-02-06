@@ -42,6 +42,7 @@
 #include <pcl/point_types.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/octree/octree_pointcloud_changedetector.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
@@ -74,6 +75,7 @@ private:
   std::string lidar_topic_;
   std::string yolo_result_topic_;
   std::string yolo_3d_result_topic_;
+  std::string search_method_;
   float cluster_tolerance_;
   float voxel_leaf_size_;
   int min_cluster_size_;
@@ -98,6 +100,8 @@ public:
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2TransformedCloud(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                                                              const std_msgs::Header& header);
   pcl::PointCloud<pcl::PointXYZ>::Ptr euclideanClusterExtraction(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr removePointsWithPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                                                             const pcl::PointCloud<pcl::PointXYZ>::Ptr& remove_cloud);
   void createBoundingBox(vision_msgs::Detection3DArray& detections3d_msg,
                          const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
                          const std::vector<vision_msgs::ObjectHypothesisWithPose>& detections_results);

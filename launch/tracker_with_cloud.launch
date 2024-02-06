@@ -21,6 +21,7 @@
   <arg name="camera_info_topic" default="/camera_info"/>
   <arg name="lidar_topic" default="/points_raw"/>
   <arg name="yolo_3d_result_topic" default="/yolo_3d_result"/>
+  <arg name="search_method" default="octree"/>
   <arg name="cluster_tolerance" default="0.3"/>
   <arg name="voxel_leaf_size" default="0.1"/>
   <arg name="min_cluster_size" default="100"/>
@@ -50,6 +51,7 @@
     <param name="lidar_topic" value="$(arg lidar_topic)"/>
     <param name="yolo_result_topic" value="$(arg result_topic)"/>
     <param name="yolo_3d_result_topic" value="$(arg yolo_3d_result_topic)"/>
+    <param name="search_method" value="$(arg search_method)"/>
     <param name="cluster_tolerance" value="$(arg cluster_tolerance)"/>
     <param name="voxel_leaf_size" value="$(arg voxel_leaf_size)"/>
     <param name="min_cluster_size" value="$(arg min_cluster_size)"/>

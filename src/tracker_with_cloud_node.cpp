@@ -24,6 +24,7 @@ TrackerWithCloudNode::TrackerWithCloudNode() : pnh_("~")
   pnh_.param<std::string>("lidar_topic", lidar_topic_, "points_raw");
   pnh_.param<std::string>("yolo_result_topic", yolo_result_topic_, "yolo_result");
   pnh_.param<std::string>("yolo_3d_result_topic", yolo_3d_result_topic_, "yolo_3d_result");
+  pnh_.param<std::string>("search_method", search_method_, "octree");
   pnh_.param<float>("cluster_tolerance", cluster_tolerance_, 0.5);
   pnh_.param<float>("voxel_leaf_size", voxel_leaf_size_, 0.5);
   pnh_.param<int>("min_cluster_size", min_cluster_size_, 100);
@@ -243,6 +244,53 @@ TrackerWithCloudNode::euclideanClusterExtraction(const pcl::PointCloud<pcl::Poin
   }
 
   return closest_cluster;
+}
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr
+TrackerWithCloudNode::removePointsWithPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
+                                             const pcl::PointCloud<pcl::PointXYZ>::Ptr& remove_cloud)
+{
+  pcl::PointCloud<pcl::PointXYZ>::Ptr removed_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+  if (search_method_ == "kdtree")
+  {
+    ROS_INFO("Remove by kdtree");
+    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+    kdtree.setInputCloud(remove_cloud);
+
+    for (const auto& point : cloud->points)
+    {
+      std::vector<int> point_idx_nkn_search(1);
+      std::vector<float> point_nkn_squared_distance(1);
+      kdtree.nearestKSearch(point, 1, point_idx_nkn_search, point_nkn_squared_distance);
+      if (point_nkn_squared_distance[0] > 0.01)
+      {
+        removed_cloud->points.push_back(point);
+      }
+    }
+  }
+  else if (search_method_ == "octree")
+  {
+    ROS_INFO("Remove by octree change detector");
+    float resolution = 0.1f;
+    pcl::octree::OctreePointCloudChangeDetector<pcl::PointXYZ> octree(resolution);
+    octree.setInputCloud(remove_cloud);
+    octree.addPointsFromInputCloud();
+    octree.switchBuffers();
+    octree.setInputCloud(cloud);
+    octree.addPointsFromInputCloud();
+    std::vector<int> new_point_idx_vector;
+    octree.getPointIndicesFromNewVoxels(new_point_idx_vector);
+    for (const auto& indice : new_point_idx_vector)
+    {
+      removed_cloud->points.push_back((*cloud)[indice]);
+    }
+  }
+  else
+  {
+    ROS_ERROR("Invalid sorted_by parameter");
+  }
+  return removed_cloud;
 }
 
 void TrackerWithCloudNode::createBoundingBox(
