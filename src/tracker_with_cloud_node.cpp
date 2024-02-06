@@ -31,7 +31,7 @@ TrackerWithCloudNode::TrackerWithCloudNode() : pnh_("~")
   pnh_.param<int>("max_cluster_size", max_cluster_size_, 25000);
 
   detection_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("detection_cloud", 1);
-  detection_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("excluded_cloud", 1);
+  excluded_cloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("excluded_cloud", 1);
   detection3d_pub_ = nh_.advertise<vision_msgs::Detection3DArray>(yolo_3d_result_topic_, 1);
   marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("detection_marker", 1);
   camera_info_sub_.subscribe(nh_, camera_info_topic_, 10);
@@ -69,6 +69,7 @@ void TrackerWithCloudNode::syncCallback(const sensor_msgs::CameraInfo::ConstPtr&
 
   detection3d_pub_.publish(detections3d_msg);
   detection_cloud_pub_.publish(detection_cloud_msg);
+  excluded_cloud_pub_.publish(excluded_cloud_msg);
   marker_pub_.publish(marker_array_msg);
 }
 
@@ -115,6 +116,7 @@ void TrackerWithCloudNode::projectCloud(const pcl::PointCloud<pcl::PointXYZ>::Pt
   pcl::toROSMsg(combine_detection_cloud, combine_detection_cloud_msg);
   pcl::toROSMsg(*excluded_cloud, excluded_cloud_msg);
   combine_detection_cloud_msg.header = header;
+  excluded_cloud_msg.header = header;
 }
 
 void TrackerWithCloudNode::processPointsWithBbox(const pcl::PointCloud<pcl::PointXYZ>::Ptr& cloud,
